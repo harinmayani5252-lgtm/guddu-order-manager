@@ -1,0 +1,22 @@
+{
+  "name": "Guddu Order Manager",
+  "short_name": "Guddu Orders",
+  "description": "Digitise textile order entry and generate professional PDF order sheets.",
+  "id": "/guddu-order-manager/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b0d16",
+  "theme_color": "#4f46e5",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "New Order", "short_name": "New Order", "url": "./index.html#/new", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Order History", "short_name": "Orders", "url": "./index.html#/orders" }
+  ]
+}
