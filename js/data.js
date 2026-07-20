@@ -51,6 +51,15 @@
     logout: function () { localStorage.removeItem(KEYS.session); },
   };
 
+  /* ---- Cloud config (baked in so EVERY device auto-connects) ----
+     The anon key is a public client key and is meant to ship in the app.
+     Access is gated by the app logins + Supabase Row Level Security.
+     To change projects later, just edit these two lines and redeploy. */
+  var CLOUD = {
+    url: 'https://jgfkzjydmgukdsqkvwvb.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpnZmt6anlkbWd1a2RzcWt2d3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1NDMxNDQsImV4cCI6MjEwMDExOTE0NH0.bK1TnEFAAIGwKJ4lh7KRqGY9kayfIuum5D_2fqyNVSw',
+  };
+
   /* ---- Settings (company profile + preferences + sync config) ---- */
   var DEFAULT_SETTINGS = {
     company: {
@@ -65,17 +74,26 @@
     },
     theme: 'light',
     orderPrefix: 'ORD-',
-    sync: { enabled: false, url: '', anonKey: '' },
+    sync: { enabled: !!(CLOUD.url && CLOUD.anonKey), url: CLOUD.url, anonKey: CLOUD.anonKey },
   };
 
   var Settings = {
     get: function () {
       var s = read(KEYS.settings, null);
-      if (!s) { write(KEYS.settings, DEFAULT_SETTINGS); return JSON.parse(JSON.stringify(DEFAULT_SETTINGS)); }
-      // shallow-merge to pick up new default keys after upgrades
-      s.company = Object.assign({}, DEFAULT_SETTINGS.company, s.company || {});
-      s.sync = Object.assign({}, DEFAULT_SETTINGS.sync, s.sync || {});
-      if (!s.orderPrefix) s.orderPrefix = DEFAULT_SETTINGS.orderPrefix;
+      if (!s) { s = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)); }
+      else {
+        // shallow-merge to pick up new default keys after upgrades
+        s.company = Object.assign({}, DEFAULT_SETTINGS.company, s.company || {});
+        s.sync = Object.assign({}, DEFAULT_SETTINGS.sync, s.sync || {});
+        if (!s.orderPrefix) s.orderPrefix = DEFAULT_SETTINGS.orderPrefix;
+      }
+      // Baked-in cloud config always wins, so a fresh device (guddu2, guddu3…)
+      // is pre-connected without anyone typing the URL/key.
+      if (CLOUD.url && CLOUD.anonKey) {
+        s.sync.url = CLOUD.url;
+        s.sync.anonKey = CLOUD.anonKey;
+        s.sync.enabled = true;
+      }
       return s;
     },
     save: function (s) { write(KEYS.settings, s); return s; },
