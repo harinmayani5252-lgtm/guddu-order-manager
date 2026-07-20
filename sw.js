@@ -1,7 +1,7 @@
 /* Service worker — offline support for Guddu Order Manager.
    Precaches the app shell; runtime-caches the CDN PDF libs so the app
    works fully offline after the first online load. */
-var VERSION = 'gom-v4';
+var VERSION = 'gom-v5';
 var SHELL = VERSION + '-shell';
 var RUNTIME = VERSION + '-runtime';
 

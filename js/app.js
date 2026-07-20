@@ -654,6 +654,16 @@
     // About
     content.appendChild(h('<div class="card card-pad mt-16 stack gap-8"><div class="section-title">About</div>' +
       '<div class="muted small">Guddu Order Manager — installable PWA. Works offline; data stored on your device.<br>Created by <b style="color:var(--text-2)">Keval Mayani</b>.</div></div>'));
+
+    // Account + sign out (reachable on phones, where the sidebar is hidden)
+    var sess = DB.Auth.current();
+    var acct = h('<div class="card card-pad mt-16 stack gap-12"></div>');
+    acct.appendChild(h('<div class="section-title">Account</div>'));
+    acct.appendChild(h('<div class="muted small">Signed in as <b style="color:var(--text-2)">' + esc(sess.name) + '</b> (' + esc(sess.username) + ')</div>'));
+    var soBtn = h('<button class="btn btn-danger" style="align-self:flex-start">' + ICONS.out + ' Sign out</button>');
+    soBtn.onclick = doLogout;
+    acct.appendChild(soBtn);
+    content.appendChild(acct);
   });
 
   /* ---------- cloud auto-sync helper ---------- */
