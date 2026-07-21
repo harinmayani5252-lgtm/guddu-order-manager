@@ -112,6 +112,23 @@
       return row;
     },
 
+    /* rename a design number (updates the shared row + local cache) */
+    rename: async function (id, newNumber) {
+      var dn = String(newNumber || '').trim();
+      if (!dn) throw new Error('Design number is required.');
+      if (ready()) {
+        await req('/rest/v1/designs?id=eq.' + encodeURIComponent(id), {
+          method: 'PATCH',
+          headers: headers({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+          body: JSON.stringify({ design_number: dn, norm: norm(dn), updated_at: new Date().toISOString() }),
+        });
+      }
+      var list = readCache();
+      var rec = list.find(function (d) { return d.id === id; });
+      if (rec) { rec.design_number = dn; rec.norm = norm(dn); writeCache(list); }
+      return dn;
+    },
+
     remove: async function (id) {
       var list = readCache();
       var rec = list.find(function (d) { return d.id === id; });

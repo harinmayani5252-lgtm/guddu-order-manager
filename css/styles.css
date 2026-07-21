@@ -332,9 +332,12 @@ html[data-theme="dark"] .toast { background: #262a3d; }
 .design-card { position: relative; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-sm); }
 .design-card .thumb { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: var(--surface-2); display: block; }
 .design-card .meta { padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.design-card .dn { font-weight: 700; font-size: 13px; }
-.design-card .rm { border: none; background: transparent; color: var(--text-3); cursor: pointer; width: 30px; height: 30px; border-radius: 8px; flex: none; }
+.design-card .dn { font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.design-card .acts { display: flex; gap: 2px; flex: none; }
+.design-card .rm, .design-card .ed { border: none; background: transparent; color: var(--text-3); cursor: pointer; width: 30px; height: 30px; border-radius: 8px; flex: none; display: grid; place-items: center; }
+.design-card .rm svg, .design-card .ed svg { width: 15px; height: 15px; }
 .design-card .rm:hover { background: var(--danger-soft); color: var(--danger); }
+.design-card .ed:hover { background: var(--brand-soft); color: var(--brand-600); }
 
 /* review queue */
 .queue-photo { width: 100%; max-height: 46vh; object-fit: contain; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); }

@@ -200,7 +200,9 @@
 
     /* ---------- Design Reference photos (last page) ---------- */
     var designImgs = [];
-    try { designImgs = await loadDesignImages(order); } catch (e) { designImgs = []; }
+    if (opts.includeDesigns !== false) {
+      try { designImgs = await loadDesignImages(order); } catch (e) { designImgs = []; }
+    }
     if (designImgs.length) {
       var H0 = doc.internal.pageSize.getHeight();
       doc.addPage();

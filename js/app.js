@@ -371,6 +371,7 @@
       if (!payload.items.length) { toast('Add at least one product row.', 'err'); return; }
       var order = existing ? DB.Orders.update(existing.id, payload) : DB.Orders.create(payload);
       toast(existing ? 'Order updated' : 'Order created: ' + order.order_number);
+      if (!existing) window.__justCreated = order.id;
       navigate('#/order/' + order.id);
       if (Sync.enabled()) Sync.pushChange(function (err) {
         if (err) toast('Saved locally — cloud sync will retry', 'err');
@@ -437,6 +438,15 @@
 
     content.appendChild(h('<a href="#/orders" class="btn btn-ghost btn-sm" style="margin-bottom:12px">' + ICONS.back + ' Back to orders</a>'));
 
+    // fresh-from-creation confirmation banner
+    if (window.__justCreated === o.id) {
+      window.__justCreated = null;
+      content.appendChild(h('<div class="card card-pad" style="margin-bottom:14px;border-color:var(--success);background:var(--success-soft);display:flex;align-items:center;gap:10px">' +
+        '<span style="color:var(--success);font-size:20px">✓</span>' +
+        '<div><div style="font-weight:700">Order ' + esc(o.order_number) + ' created</div>' +
+        '<div class="muted small">Download, print or share it using the buttons below.</div></div></div>'));
+    }
+
     var head = h('<div class="card card-pad stack gap-16"></div>');
     head.appendChild(h('<div class="row between wrap gap-8">' +
       '<div><div class="mono" style="color:var(--brand-600);font-weight:700">' + esc(o.order_number) + '</div>' +
@@ -466,15 +476,31 @@
     content.appendChild(itemsCard);
 
     // actions
+    var matchedDesigns = (window.Designs && Designs.forOrder) ? Designs.forOrder(o) : [];
+    var pdfState = { includeDesigns: matchedDesigns.length > 0 };
+    function pdfOpts() { return { includeDesigns: pdfState.includeDesigns }; }
+
     var actions = h('<div class="card card-pad mt-16 stack gap-16"></div>');
     actions.appendChild(h('<div class="section-title">PDF & Share</div>'));
+
+    // choose what the PDF contains: invoice only, or invoice + design photos
+    if (matchedDesigns.length) {
+      var incRow = h('<div class="row between" style="padding:2px 0;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px">' +
+        '<div><div style="font-weight:600">Include design photos</div>' +
+        '<div class="muted small">' + matchedDesigns.length + ' photo' + (matchedDesigns.length === 1 ? '' : 's') + ' will be added on a page after the invoice</div></div></div>');
+      var incTog = h('<div class="toggle on"></div>');
+      incRow.appendChild(incTog);
+      incTog.onclick = function () { pdfState.includeDesigns = !pdfState.includeDesigns; incTog.classList.toggle('on', pdfState.includeDesigns); };
+      actions.appendChild(incRow);
+    }
+
     var row1 = h('<div class="row gap-8 wrap"></div>');
     var dl = h('<button class="btn btn-primary">' + ICONS.pdf + ' Download PDF</button>');
-    dl.onclick = function () { withPDF(o, function (r) { downloadBlob(r.blob, r.filename); toast('Saved ' + r.filename); }); };
+    dl.onclick = function () { withPDF(o, function (r) { downloadBlob(r.blob, r.filename); toast('Saved ' + r.filename); }, pdfOpts()); };
     var printBtn = h('<button class="btn btn-outline">' + ICONS.printer + ' Print</button>');
-    printBtn.onclick = function () { printPDF(o); };
+    printBtn.onclick = function () { printPDF(o, pdfOpts()); };
     var viewPdf = h('<button class="btn btn-outline">' + ICONS.pdf + ' Preview PDF</button>');
-    viewPdf.onclick = function () { withPDF(o, function (r) { window.open(URL.createObjectURL(r.blob), '_blank'); }); };
+    viewPdf.onclick = function () { withPDF(o, function (r) { window.open(URL.createObjectURL(r.blob), '_blank'); }, pdfOpts()); };
     var edit = h('<a href="#/edit/' + o.id + '" class="btn btn-ghost">' + ICONS.edit + ' Edit</a>');
     var del = h('<button class="btn btn-danger">' + ICONS.trash + ' Delete</button>');
     del.onclick = function () {
@@ -494,13 +520,13 @@
     var shareTip = h('<div class="muted small">On phones, “Share PDF” attaches the file directly. On desktop the PDF downloads first, then the chat opens with a ready message to attach it.</div>');
     var row2 = h('<div class="row gap-8 wrap"></div>');
     var nativeShare = h('<button class="btn btn-outline">' + ICONS.share + ' Share PDF</button>');
-    nativeShare.onclick = function () { withPDF(o, function (r) { sharePDF(o, r); }); };
+    nativeShare.onclick = function () { withPDF(o, function (r) { sharePDF(o, r); }, pdfOpts()); };
     var wa = h('<button class="btn btn-wa">' + ICONS.wa + ' WhatsApp</button>');
-    wa.onclick = function () { withPDF(o, function (r) { downloadBlob(r.blob, r.filename); window.open('https://wa.me/?text=' + encodeURIComponent(shareText(o)), '_blank'); }); };
+    wa.onclick = function () { withPDF(o, function (r) { downloadBlob(r.blob, r.filename); window.open('https://wa.me/?text=' + encodeURIComponent(shareText(o)), '_blank'); }, pdfOpts()); };
     var tg = h('<button class="btn btn-tg">' + ICONS.tg + ' Telegram</button>');
-    tg.onclick = function () { withPDF(o, function (r) { downloadBlob(r.blob, r.filename); window.open('https://t.me/share/url?url=&text=' + encodeURIComponent(shareText(o)), '_blank'); }); };
+    tg.onclick = function () { withPDF(o, function (r) { downloadBlob(r.blob, r.filename); window.open('https://t.me/share/url?url=&text=' + encodeURIComponent(shareText(o)), '_blank'); }, pdfOpts()); };
     var mail = h('<button class="btn btn-mail">' + ICONS.mail + ' Email</button>');
-    mail.onclick = function () { withPDF(o, function (r) { downloadBlob(r.blob, r.filename); window.location.href = 'mailto:?subject=' + encodeURIComponent('Order ' + o.order_number + ' — ' + o.customer.customer_name) + '&body=' + encodeURIComponent(shareText(o) + '\n\n(Please attach the downloaded PDF: ' + r.filename + ')'); }); };
+    mail.onclick = function () { withPDF(o, function (r) { downloadBlob(r.blob, r.filename); window.location.href = 'mailto:?subject=' + encodeURIComponent('Order ' + o.order_number + ' — ' + o.customer.customer_name) + '&body=' + encodeURIComponent(shareText(o) + '\n\n(Please attach the downloaded PDF: ' + r.filename + ')'); }, pdfOpts()); };
     row2.appendChild(nativeShare); row2.appendChild(wa); row2.appendChild(tg); row2.appendChild(mail);
     actions.appendChild(row2);
     actions.appendChild(shareTip);
@@ -513,16 +539,25 @@
       '\nDate: ' + fmtDate(o.order_date) + '\nTotal: ' + (o.total_designs || 0) + ' designs, ' + (o.total_pieces || 0) + ' pieces.';
   }
 
-  async function withPDF(order, cb) {
-    try { var r = await PDFGen.build(order, DB.Settings.get()); cb(r); }
+  async function withPDF(order, cb, opts) {
+    try { var r = await PDFGen.build(order, DB.Settings.get(), opts); cb(r); }
     catch (e) { toast(e.message || 'Could not generate PDF', 'err'); }
   }
-  /* Print the A4 PDF: load it in a hidden iframe and open the print dialog.
-     Falls back to opening the PDF in a new tab if inline printing is blocked. */
-  async function printPDF(order) {
+  function isMobile() { return window.matchMedia('(max-width: 900px)').matches || ('ontouchstart' in window); }
+  /* Print the A4 PDF. On desktop: hidden-iframe print dialog. On phones: open
+     the PDF in the browser's own viewer (reliably includes ALL pages, incl.
+     the design-photo page) so the user prints/shares from there. */
+  async function printPDF(order, opts) {
     try {
-      var r = await PDFGen.build(order, DB.Settings.get(), { print: true });
+      var r = await PDFGen.build(order, DB.Settings.get(), Object.assign({ print: true }, opts || {}));
       var url = URL.createObjectURL(r.blob);
+      if (isMobile()) {
+        var w = window.open(url, '_blank');
+        if (!w) { downloadBlob(r.blob, r.filename); toast('Allow pop-ups to print, or use the downloaded file.'); }
+        else { toast('Opened PDF — use your browser’s Print.'); }
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+        return;
+      }
       var prev = document.getElementById('print-frame'); if (prev) prev.remove();
       var frame = document.createElement('iframe');
       frame.id = 'print-frame';
@@ -589,14 +624,17 @@
       }
       var grid = h('<div class="design-grid"></div>');
       list.forEach(function (d) {
-        var card = h('<div class="design-card"><img class="thumb" loading="lazy" src="' + esc(d.url) + '" alt=""><div class="meta"><span class="dn">' + esc(d.design_number) + '</span></div></div>');
+        var card = h('<div class="design-card"><img class="thumb" loading="lazy" src="' + esc(d.url) + '" alt=""><div class="meta"><span class="dn">' + esc(d.design_number) + '</span><span class="acts"></span></div></div>');
+        var ed = h('<button class="ed" title="Rename">' + ICONS.edit + '</button>');
+        ed.onclick = function () { renameDesign(d, renderGrid); };
         var rm = h('<button class="rm" title="Delete">' + ICONS.trash + '</button>');
         rm.onclick = function () {
           confirmDialog({ title: 'Delete design?', body: 'The photo for ' + d.design_number + ' will be removed for everyone.', ok: 'Delete', danger: true }).then(function (ok) {
             if (ok) Designs.remove(d.id).then(function () { toast('Design removed'); renderGrid(); }).catch(function (e) { toast(e.message, 'err'); });
           });
         };
-        qs('.meta', card).appendChild(rm);
+        qs('.acts', card).appendChild(ed);
+        qs('.acts', card).appendChild(rm);
         grid.appendChild(card);
       });
       gridWrap.appendChild(grid);
@@ -658,6 +696,28 @@
       inp.focus();
     }
     show();
+  }
+
+  /* rename a design number (works on phone / tablet / desktop) */
+  function renameDesign(d, done) {
+    var node = h('<div class="stack gap-16">' +
+      '<h3>Rename design</h3>' +
+      '<div class="field"><label>Design number</label><input class="input" value="' + esc(d.design_number) + '" autocapitalize="characters" autocomplete="off"></div>' +
+      '<div class="row gap-8" style="justify-content:flex-end"><button class="btn btn-ghost" data-x>Cancel</button><button class="btn btn-primary" data-ok>Save</button></div></div>');
+    var m = modal(node);
+    var inp = qs('input', node);
+    setTimeout(function () { inp.focus(); try { inp.select(); } catch (e) {} }, 30);
+    function save() {
+      var v = inp.value.trim();
+      if (!v) { toast('Enter a design number', 'err'); inp.focus(); return; }
+      if (v === d.design_number) { m.close(); return; }
+      var ok = qs('[data-ok]', node); ok.disabled = true; ok.innerHTML = '<span class="spinner"></span> Saving';
+      Designs.rename(d.id, v).then(function () { m.close(); toast('Renamed to ' + v); if (done) done(); })
+        .catch(function (e) { toast(e.message || 'Rename failed', 'err'); ok.disabled = false; ok.textContent = 'Save'; });
+    }
+    qs('[data-x]', node).onclick = function () { m.close(); };
+    qs('[data-ok]', node).onclick = save;
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); save(); } });
   }
 
   /* ================= SETTINGS ================= */
@@ -792,8 +852,13 @@
   render();
   autoSync(true);
 
-  // register service worker
+  // register service worker + auto-reload once when a new version takes over,
+  // so re-opening the app reliably shows the latest deploy.
   if ('serviceWorker' in navigator) {
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (refreshing) return; refreshing = true; window.location.reload();
+    });
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () {});
     });
