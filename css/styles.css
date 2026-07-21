@@ -251,6 +251,13 @@ table.tbl tbody tr:hover { background: var(--surface-2); }
 .auth-card { width: 100%; max-width: 400px; }
 .auth-logo { width: 56px; height: 56px; border-radius: 16px; box-shadow: var(--shadow-md); }
 
+/* inline emblem (recolorable via currentColor) */
+.logo-mark { display: inline-flex; color: var(--brand-600); }
+.logo-mark svg { display: block; width: 100%; height: auto; }
+html[data-theme="dark"] .logo-mark { color: #fff; }
+.auth-emblem { width: 128px; }
+.brand-emblem { width: 40px; }
+
 /* ---------- Utility ---------- */
 .stack { display: flex; flex-direction: column; }
 .gap-8 { gap: 8px; } .gap-12 { gap: 12px; } .gap-16 { gap: 16px; } .gap-20 { gap: 20px; } .gap-24 { gap: 24px; }

@@ -34,20 +34,24 @@
     doc.setFillColor.apply(doc, INDIGO);
     doc.rect(0, 0, W, 96, 'F');
 
-    // logo mark: two interlocking rings
-    var lx = M + 20, ly = 48, r = 14;
-    doc.setDrawColor(255, 255, 255); doc.setLineWidth(3.2);
-    doc.circle(lx - 7, ly, r, 'S');
-    doc.circle(lx + 7, ly, r, 'S');
+    // real Guddu Group emblem (white PNG) — falls back gracefully if missing
+    var textX = M;
+    try {
+      if (global.LOGO_PNG_WHITE) {
+        var eh = 34, ew = eh * 1.53; // emblem aspect ratio
+        doc.addImage(global.LOGO_PNG_WHITE, 'PNG', M, 30, ew, eh);
+        textX = M + ew + 12;
+      }
+    } catch (e) { textX = M; }
 
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(21);
-    doc.text(co.name || 'ORDER FORM', M + 52, 44);
+    doc.text(co.name || 'ORDER FORM', textX, 44);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
     doc.setTextColor(226, 230, 255);
-    doc.text((co.tagline || '').toUpperCase(), M + 52, 58);
+    doc.text((co.tagline || '').toUpperCase(), textX, 58);
     var addr = doc.splitTextToSize(co.address || '', 300);
-    doc.text(addr, M + 52, 70);
+    doc.text(addr, textX, 70);
 
     // right: contacts + ORDER FORM tag
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9);

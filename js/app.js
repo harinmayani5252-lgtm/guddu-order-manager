@@ -107,7 +107,7 @@
     var card = qs('.auth-card', wrap);
     card.appendChild(h(
       '<div class="stack gap-12" style="align-items:center;text-align:center">' +
-      '<img class="auth-logo" src="icons/icon-192.png" alt="logo"/>' +
+      '<span class="logo-mark auth-emblem">' + (window.LOGO_SVG || '') + '</span>' +
       '<div><h2 style="font-size:20px">Guddu Order Manager</h2>' +
       '<div class="muted small">Sign in to create & manage orders</div></div></div>'));
     var form = h(
@@ -154,7 +154,7 @@
     // sidebar (desktop)
     var side = h('<aside class="sidebar"></aside>');
     side.appendChild(h(
-      '<div class="brand"><img class="brand-logo" src="icons/icon-192.png" alt="logo"/>' +
+      '<div class="brand"><span class="logo-mark brand-emblem">' + (window.LOGO_SVG || '') + '</span>' +
       '<div><div class="brand-name">' + esc(s.company.name) + '</div>' +
       '<div class="brand-sub">Order Manager</div></div></div>'));
     var nav = h('<nav class="nav"></nav>');
@@ -586,15 +586,17 @@
     qs('.row:last-child', comp).appendChild(saveComp); qs('.row:last-child', comp).appendChild(resetComp);
     content.appendChild(comp);
 
-    // Accounts (info)
-    var acc = h('<div class="card card-pad stack gap-12 mt-16"></div>');
-    acc.appendChild(h('<div class="section-title">Login Accounts (10 admins)</div>'));
-    acc.appendChild(h('<div class="muted small">Give each user one of these. All have full admin access. Data is stored on each device; use Backup below to move data between devices, or enable Cloud Sync.</div>'));
-    var accTbl = h('<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Username</th><th>Password</th></tr></thead><tbody></tbody></table></div>');
-    var atb = qs('tbody', accTbl);
-    DB.Auth.accounts.forEach(function (a) { atb.appendChild(h('<tr><td class="mono">' + a.username + '</td><td class="mono">' + a.password + '</td></tr>')); });
-    acc.appendChild(accTbl);
-    content.appendChild(acc);
+    // Accounts (info) — only guddu1 (the owner) may see the full credentials list
+    if (DB.Auth.current().username === 'guddu1') {
+      var acc = h('<div class="card card-pad stack gap-12 mt-16"></div>');
+      acc.appendChild(h('<div class="section-title">Login Accounts (10 admins)</div>'));
+      acc.appendChild(h('<div class="muted small">Only you (guddu1) can see this list. Give each user one of these. All have full admin access.</div>'));
+      var accTbl = h('<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Username</th><th>Password</th></tr></thead><tbody></tbody></table></div>');
+      var atb = qs('tbody', accTbl);
+      DB.Auth.accounts.forEach(function (a) { atb.appendChild(h('<tr><td class="mono">' + a.username + '</td><td class="mono">' + a.password + '</td></tr>')); });
+      acc.appendChild(accTbl);
+      content.appendChild(acc);
+    }
 
     // Backup / restore
     var bk = h('<div class="card card-pad stack gap-12 mt-16"></div>');
