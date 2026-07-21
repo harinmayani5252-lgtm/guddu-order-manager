@@ -37,6 +37,7 @@
     inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
     cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><polyline points="8 16 12 12 16 16"/><line x1="12" y1="12" x2="12" y2="21"/></svg>',
     printer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+    image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
   };
 
   /* ---------- toast ---------- */
@@ -140,6 +141,7 @@
     { path: '#/dashboard', base: '/dashboard', label: 'Dashboard', icon: 'dash' },
     { path: '#/new', base: '/new', label: 'New Order', icon: 'plus' },
     { path: '#/orders', base: '/orders', label: 'Orders', icon: 'list' },
+    { path: '#/designs', base: '/designs', label: 'Designs', icon: 'image' },
     { path: '#/settings', base: '/settings', label: 'Settings', icon: 'gear' },
   ];
 
@@ -174,7 +176,7 @@
     // main
     var main = h('<div class="main"></div>');
     var top = h('<div class="topbar"></div>');
-    var pageTitle = { '/dashboard': 'Dashboard', '/new': 'New Order', '/orders': 'Order History', '/order': 'Order', '/settings': 'Settings' }[r.base] || '';
+    var pageTitle = { '/dashboard': 'Dashboard', '/new': 'New Order', '/orders': 'Order History', '/order': 'Order', '/designs': 'Design Library', '/settings': 'Settings' }[r.base] || '';
     top.appendChild(h('<h1>' + pageTitle + '</h1>'));
     top.appendChild(h('<div class="spacer"></div>'));
     var themeBtn = h('<button class="btn btn-icon btn-ghost" title="Toggle theme">' + (s.theme === 'dark' ? ICONS.sun : ICONS.moon) + '</button>');
@@ -198,7 +200,7 @@
     shell.appendChild(main);
 
     // mobile bottom nav
-    var mnav = h('<nav class="mobile-nav"></nav>');
+    var mnav = h('<nav class="mobile-nav' + (NAVS.length >= 5 ? ' five' : '') + '"></nav>');
     NAVS.forEach(function (n) {
       mnav.appendChild(h('<a href="' + n.path + '" class="' + (r.base === n.base ? 'active' : '') + '">' + ICONS[n.icon] + '<span>' + n.label.replace('New Order', 'New') + '</span></a>'));
     });
@@ -511,15 +513,15 @@
       '\nDate: ' + fmtDate(o.order_date) + '\nTotal: ' + (o.total_designs || 0) + ' designs, ' + (o.total_pieces || 0) + ' pieces.';
   }
 
-  function withPDF(order, cb) {
-    try { var r = PDFGen.build(order, DB.Settings.get()); cb(r); }
+  async function withPDF(order, cb) {
+    try { var r = await PDFGen.build(order, DB.Settings.get()); cb(r); }
     catch (e) { toast(e.message || 'Could not generate PDF', 'err'); }
   }
   /* Print the A4 PDF: load it in a hidden iframe and open the print dialog.
      Falls back to opening the PDF in a new tab if inline printing is blocked. */
-  function printPDF(order) {
+  async function printPDF(order) {
     try {
-      var r = PDFGen.build(order, DB.Settings.get(), { print: true });
+      var r = await PDFGen.build(order, DB.Settings.get(), { print: true });
       var url = URL.createObjectURL(r.blob);
       var prev = document.getElementById('print-frame'); if (prev) prev.remove();
       var frame = document.createElement('iframe');
@@ -551,6 +553,111 @@
     }
     downloadBlob(r.blob, r.filename);
     toast('Sharing not supported here — PDF downloaded instead.');
+  }
+
+  /* ================= DESIGN LIBRARY ================= */
+  route('/designs', function (content) {
+    if (!window.Designs || !Designs.ready()) {
+      content.appendChild(h('<div class="card empty">' + ICONS.image + '<div>Cloud sync must be connected to use the Design Library.</div></div>'));
+      return;
+    }
+
+    var head = h('<div class="row between wrap gap-8" style="margin-bottom:14px"></div>');
+    head.appendChild(h('<div><h3 style="font-size:16px">Design Library</h3><div class="muted small" data-count>&nbsp;</div></div>'));
+    var addLabel = h('<label class="btn btn-primary" style="cursor:pointer">' + ICONS.plus + ' Add designs<input type="file" accept="image/*" multiple hidden></label>');
+    head.appendChild(addLabel);
+    content.appendChild(head);
+
+    var search = h('<div class="card card-pad" style="margin-bottom:14px;position:relative">' +
+      '<span style="position:absolute;left:26px;top:26px;color:var(--text-3)">' + ICONS.search + '</span>' +
+      '<input class="input" style="padding-left:38px" placeholder="Search by design number" data-q></div>');
+    content.appendChild(search);
+
+    var gridWrap = h('<div></div>');
+    content.appendChild(gridWrap);
+
+    var state = { q: '' };
+    function renderGrid() {
+      var all = Designs.listLocal();
+      var q = state.q.trim().toLowerCase();
+      var list = q ? all.filter(function (d) { return d.design_number.toLowerCase().indexOf(q) !== -1; }) : all;
+      qs('[data-count]', head).textContent = all.length + ' design' + (all.length === 1 ? '' : 's') + ' stored';
+      gridWrap.innerHTML = '';
+      if (!list.length) {
+        gridWrap.appendChild(h('<div class="card empty">' + ICONS.image + '<div>' + (all.length ? 'No match.' : 'No designs yet. Tap “Add designs” to upload photos.') + '</div></div>'));
+        return;
+      }
+      var grid = h('<div class="design-grid"></div>');
+      list.forEach(function (d) {
+        var card = h('<div class="design-card"><img class="thumb" loading="lazy" src="' + esc(d.url) + '" alt=""><div class="meta"><span class="dn">' + esc(d.design_number) + '</span></div></div>');
+        var rm = h('<button class="rm" title="Delete">' + ICONS.trash + '</button>');
+        rm.onclick = function () {
+          confirmDialog({ title: 'Delete design?', body: 'The photo for ' + d.design_number + ' will be removed for everyone.', ok: 'Delete', danger: true }).then(function (ok) {
+            if (ok) Designs.remove(d.id).then(function () { toast('Design removed'); renderGrid(); }).catch(function (e) { toast(e.message, 'err'); });
+          });
+        };
+        qs('.meta', card).appendChild(rm);
+        grid.appendChild(card);
+      });
+      gridWrap.appendChild(grid);
+    }
+    qs('[data-q]', search).oninput = function (e) { state.q = e.target.value; renderGrid(); };
+    qs('input', addLabel).onchange = function (e) {
+      var files = Array.prototype.slice.call(e.target.files); e.target.value = '';
+      if (files.length) startReview(content, files);
+    };
+
+    renderGrid();
+    Designs.refresh().then(renderGrid).catch(function () {});
+  });
+
+  /* review queue: show each photo, type the number printed on it, Save & Next */
+  function startReview(content, files) {
+    var idx = 0, saved = 0;
+    content.innerHTML = '';
+    var overlay = h('<div class="card card-pad stack gap-16"></div>');
+    content.appendChild(overlay);
+    overlay.appendChild(h('<div class="row between"><h3 style="font-size:16px">Add designs</h3><button class="btn btn-ghost btn-sm" data-close>Done</button></div>'));
+    var prog = h('<div class="queue-progress"><i style="width:0%"></i></div>');
+    overlay.appendChild(prog);
+    var body = h('<div class="stack gap-12"></div>');
+    overlay.appendChild(body);
+    qs('[data-close]', overlay).onclick = function () { navigate('#/designs'); render(); };
+
+    function show() {
+      qs('i', prog).style.width = Math.round((idx / files.length) * 100) + '%';
+      body.innerHTML = '';
+      if (idx >= files.length) {
+        body.appendChild(h('<div class="empty">' + ICONS.image + '<div>Added ' + saved + ' design' + (saved === 1 ? '' : 's') + '.</div></div>'));
+        setTimeout(function () { render(); }, 700);
+        return;
+      }
+      body.appendChild(h('<div class="muted small">Photo ' + (idx + 1) + ' of ' + files.length + '</div>'));
+      var imgEl = h('<img class="queue-photo" alt="loading…">');
+      body.appendChild(imgEl);
+      var field = h('<div class="field"><label>Design number (as printed on the photo)</label><input class="input" placeholder="e.g. W-412" autocomplete="off" autocapitalize="characters"></div>');
+      body.appendChild(field);
+      var btns = h('<div class="row gap-8" style="justify-content:flex-end"></div>');
+      var skip = h('<button class="btn btn-ghost">Skip</button>');
+      var save = h('<button class="btn btn-primary">Save & Next</button>');
+      btns.appendChild(skip); btns.appendChild(save); body.appendChild(btns);
+      var inp = qs('input', field);
+
+      var compressed = null;
+      Designs.compress(files[idx]).then(function (c) { compressed = c; imgEl.src = c.dataUrl; }).catch(function () { imgEl.alt = 'Could not read this image'; });
+      skip.onclick = function () { idx++; show(); };
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); save.click(); } });
+      save.onclick = function () {
+        var dn = inp.value.trim();
+        if (!dn) { toast('Type the design number', 'err'); inp.focus(); return; }
+        if (!compressed) { toast('Still processing the photo…', 'err'); return; }
+        save.disabled = true; save.innerHTML = '<span class="spinner"></span> Saving';
+        Designs.add(dn, compressed.blob).then(function () { saved++; idx++; show(); })
+          .catch(function (e) { toast(e.message || 'Upload failed', 'err'); save.disabled = false; save.textContent = 'Save & Next'; });
+      };
+      inp.focus();
+    }
+    show();
   }
 
   /* ================= SETTINGS ================= */
@@ -670,6 +777,7 @@
 
   /* ---------- cloud auto-sync helper ---------- */
   function autoSync(silent) {
+    if (window.Designs && Designs.ready()) Designs.refresh().catch(function () {});
     if (!Sync.enabled()) return;
     Sync.background(function (err) {
       if (err) { if (!silent) toast('Cloud sync failed — data is safe locally', 'err'); return; }

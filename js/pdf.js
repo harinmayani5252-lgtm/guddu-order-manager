@@ -18,7 +18,28 @@
   }
   function sanitize(s) { return String(s || '').replace(/[^a-z0-9]+/gi, '').slice(0, 24) || 'Customer'; }
 
-  function build(order, settings, opts) {
+  // load matched design photos as dataURLs (async, best-effort)
+  function loadDesignImages(order) {
+    if (!global.Designs || !global.Designs.forOrder) return Promise.resolve([]);
+    var wanted = global.Designs.forOrder(order);
+    return Promise.all(wanted.map(function (d) {
+      return fetch(d.url).then(function (r) { return r.blob(); }).then(function (blob) {
+        return new Promise(function (resolve) {
+          var fr = new FileReader();
+          fr.onload = function () {
+            var img = new Image();
+            img.onload = function () { resolve({ design_number: d.design_number, dataUrl: fr.result, w: img.width, h: img.height }); };
+            img.onerror = function () { resolve(null); };
+            img.src = fr.result;
+          };
+          fr.onerror = function () { resolve(null); };
+          fr.readAsDataURL(blob);
+        });
+      }).catch(function () { return null; });
+    })).then(function (arr) { return arr.filter(Boolean); });
+  }
+
+  async function build(order, settings, opts) {
     opts = opts || {};
     if (!global.jspdf || !global.jspdf.jsPDF) {
       throw new Error('PDF library not loaded. Connect to the internet once so it can be cached for offline use.');
@@ -175,6 +196,45 @@
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor.apply(doc, INK);
       var noteLines = doc.splitTextToSize(order.notes, boxX - M - 20);
       doc.text(noteLines, lx2, afterTable + 58);
+    }
+
+    /* ---------- Design Reference photos (last page) ---------- */
+    var designImgs = [];
+    try { designImgs = await loadDesignImages(order); } catch (e) { designImgs = []; }
+    if (designImgs.length) {
+      var H0 = doc.internal.pageSize.getHeight();
+      doc.addPage();
+      var dy = 56;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor.apply(doc, INK);
+      doc.text('Design Reference', M, dy);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor.apply(doc, GREY);
+      doc.text('Photos of the designs on this order — for confirmation.', M, dy + 14);
+      dy += 30;
+
+      var cols = 3, gap = 16;
+      var cellW = (W - 2 * M - gap * (cols - 1)) / cols;
+      var imgH = cellW * 1.15; // photo box height
+      var cellH = imgH + 20;   // + label
+      var col = 0, x = M;
+      designImgs.forEach(function (d) {
+        if (dy + cellH > H0 - 70) { doc.addPage(); dy = 56; col = 0; x = M; }
+        x = M + col * (cellW + gap);
+        // frame
+        doc.setDrawColor.apply(doc, LINE); doc.setLineWidth(0.8);
+        doc.setFillColor(250, 250, 253);
+        doc.roundedRect(x, dy, cellW, imgH, 6, 6, 'FD');
+        // fit image preserving aspect
+        var ar = d.w / d.h;
+        var bw = cellW - 12, bh = imgH - 12;
+        var iw = bw, ih = bw / ar;
+        if (ih > bh) { ih = bh; iw = bh * ar; }
+        try { doc.addImage(d.dataUrl, 'JPEG', x + (cellW - iw) / 2, dy + (imgH - ih) / 2, iw, ih); } catch (e) {}
+        // label
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor.apply(doc, INK);
+        doc.text(String(d.design_number), x + cellW / 2, dy + imgH + 13, { align: 'center', maxWidth: cellW });
+        col++;
+        if (col >= cols) { col = 0; dy += cellH + 6; }
+      });
     }
 
     /* ---------- Footer (every page) ---------- */
