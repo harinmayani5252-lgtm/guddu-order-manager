@@ -63,8 +63,9 @@
   /* ---- Settings (company profile + preferences + sync config) ---- */
   var DEFAULT_SETTINGS = {
     company: {
-      name: 'GUDDU GROUP',
+      name: 'GUDDU FASHION PRIVATE LIMITED',
       tagline: 'WHERE POSSIBILITIES ARE INFINITE',
+      gst: '24AACCG3656K1ZJ',
       address: '501, 5th Floor, Twin Tower, Sahara Darwaja, Ring Road, Surat - 395002',
       contacts: [
         { label: 'Niravbhai (Account)', phone: '9879069343' },
@@ -84,6 +85,12 @@
       else {
         // shallow-merge to pick up new default keys after upgrades
         s.company = Object.assign({}, DEFAULT_SETTINGS.company, s.company || {});
+        if (!s.company.name || s.company.name === 'GUDDU GROUP') {
+          s.company.name = DEFAULT_SETTINGS.company.name;
+        }
+        if (!s.company.gst) {
+          s.company.gst = DEFAULT_SETTINGS.company.gst;
+        }
         s.sync = Object.assign({}, DEFAULT_SETTINGS.sync, s.sync || {});
         if (!s.orderPrefix) s.orderPrefix = DEFAULT_SETTINGS.orderPrefix;
       }
@@ -138,13 +145,15 @@
   }
 
   function computeTotals(items) {
-    var pieces = 0, designs = 0;
+    var pieces = 0, designs = 0, sets = 0;
     (items || []).forEach(function (it) {
       var p = parseInt(it.pieces, 10);
-      if (String(it.design_number || '').trim() !== '' || !isNaN(p)) designs++;
+      var s = parseInt(it.sets, 10);
+      if (String(it.design_number || '').trim() !== '' || !isNaN(p) || !isNaN(s)) designs++;
       if (!isNaN(p)) pieces += p;
+      if (!isNaN(s)) sets += s;
     });
-    return { total_pieces: pieces, total_designs: designs };
+    return { total_pieces: pieces, total_designs: designs, total_sets: sets };
   }
 
   var Orders = {
@@ -157,11 +166,12 @@
       var list = read(KEYS.orders, []);
       var session = Auth.current();
       var items = (payload.items || []).filter(function (it) {
-        return String(it.design_number || '').trim() !== '' || String(it.pieces || '').trim() !== '';
+        return String(it.design_number || '').trim() !== '' || String(it.pieces || '').trim() !== '' || String(it.sets || '').trim() !== '';
       }).map(function (it) {
         return {
           design_number: String(it.design_number || '').trim(),
           pieces: it.pieces === '' || it.pieces == null ? null : parseInt(it.pieces, 10),
+          sets: it.sets === '' || it.sets == null ? null : parseInt(it.sets, 10),
           rate: it.rate === '' || it.rate == null ? null : Number(it.rate),
           remarks: String(it.remarks || '').trim(),
         };
@@ -187,6 +197,7 @@
         items: items,
         total_pieces: totals.total_pieces,
         total_designs: totals.total_designs,
+        total_sets: totals.total_sets,
         created_by: session ? session.name : 'Unknown',
         created_by_user: session ? session.username : '',
         created_at: Date.now(),
@@ -202,11 +213,12 @@
       var o = list.find(function (x) { return x.id === id; });
       if (!o) return null;
       var items = (payload.items || []).filter(function (it) {
-        return String(it.design_number || '').trim() !== '' || String(it.pieces || '').trim() !== '';
+        return String(it.design_number || '').trim() !== '' || String(it.pieces || '').trim() !== '' || String(it.sets || '').trim() !== '';
       }).map(function (it) {
         return {
           design_number: String(it.design_number || '').trim(),
           pieces: it.pieces === '' || it.pieces == null ? null : parseInt(it.pieces, 10),
+          sets: it.sets === '' || it.sets == null ? null : parseInt(it.sets, 10),
           rate: it.rate === '' || it.rate == null ? null : Number(it.rate),
           remarks: String(it.remarks || '').trim(),
         };
@@ -220,6 +232,7 @@
       o.items = items;
       o.total_pieces = totals.total_pieces;
       o.total_designs = totals.total_designs;
+      o.total_sets = totals.total_sets;
       o.updated_at = Date.now();
       write(KEYS.orders, list);
       return o;

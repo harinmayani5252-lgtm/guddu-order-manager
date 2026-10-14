@@ -312,7 +312,7 @@
     // --- Products ---
     var prod = h('<div class="card card-pad stack gap-12"></div>');
     prod.appendChild(h('<div class="row between"><div class="section-title">Product Table</div></div>'));
-    prod.appendChild(h('<div class="rows-head"><span>#</span><span>Design No.</span><span>Pieces</span><span>Rate</span><span>Remarks</span><span></span></div>'));
+    prod.appendChild(h('<div class="rows-head"><span>#</span><span>Design No.</span><span>Pieces</span><span>Set</span><span>Rate</span><span>Remarks</span><span></span></div>'));
     var rowsEl = h('<div class="rows"></div>');
     prod.appendChild(rowsEl);
     var addBtn = h('<button type="button" class="btn btn-outline btn-sm" style="align-self:flex-start">' + ICONS.plus + ' Add Product</button>');
@@ -322,7 +322,8 @@
     // --- Summary ---
     var summary = h('<div class="card card-pad"><div class="section-title" style="margin-bottom:12px">Summary</div>' +
       '<div class="summary"><div class="box"><div class="k">Total Designs</div><div class="v" data-sum-designs>0</div></div>' +
-      '<div class="box"><div class="k">Total Pieces</div><div class="v" data-sum-pieces>0</div></div></div></div>');
+      '<div class="box"><div class="k">Total Pieces</div><div class="v" data-sum-pieces>0</div></div>' +
+      '<div class="box"><div class="k">Total Sets</div><div class="v" data-sum-sets>0</div></div></div></div>');
     form.appendChild(summary);
 
     // --- Actions ---
@@ -340,6 +341,7 @@
           '<div class="sr">' + (idx + 1) + '</div>' +
           '<div class="c-design"><input class="input" data-k="design_number" placeholder="Design No." value="' + esc(item.design_number) + '"></div>' +
           '<div class="c-pieces"><input class="input" data-k="pieces" type="number" inputmode="numeric" min="0" placeholder="Pieces" value="' + esc(item.pieces) + '"></div>' +
+          '<div class="c-set"><input class="input" data-k="sets" type="number" inputmode="numeric" min="0" placeholder="Set" value="' + esc(item.sets) + '"></div>' +
           '<div class="c-rate"><input class="input" data-k="rate" type="number" inputmode="decimal" min="0" placeholder="Rate" value="' + esc(item.rate) + '"></div>' +
           '<div class="c-remarks"><input class="input" data-k="remarks" placeholder="Remarks" value="' + esc(item.remarks) + '"></div>' +
           '<button type="button" class="del" title="Remove">' + ICONS.trash + '</button></div>');
@@ -359,8 +361,10 @@
       var t = DB.computeTotals(state.items);
       qs('[data-sum-designs]', summary).textContent = t.total_designs;
       qs('[data-sum-pieces]', summary).textContent = t.total_pieces;
+      var setsEl = qs('[data-sum-sets]', summary);
+      if (setsEl) setsEl.textContent = t.total_sets || 0;
     }
-    addBtn.onclick = function () { state.items.push(emptyItem()); renderRows(); qsa('.prod-row input', rowsEl).slice(-4)[0].focus(); };
+    addBtn.onclick = function () { state.items.push(emptyItem()); renderRows(); qsa('.prod-row input', rowsEl).slice(-5)[0].focus(); };
     renderRows();
 
     form.onsubmit = function (e) {
@@ -380,7 +384,7 @@
     };
   }
 
-  function emptyItem() { return { design_number: '', pieces: '', rate: '', remarks: '' }; }
+  function emptyItem() { return { design_number: '', pieces: '', sets: '', rate: '', remarks: '' }; }
   function field(name, label, val, type, ph) {
     return '<div class="field"><label>' + label + '</label>' +
       '<input class="input" name="' + name + '" type="' + (type || 'text') + '" placeholder="' + esc(ph || '') + '" value="' + esc(val) + '"></div>';
@@ -465,11 +469,13 @@
     // items
     var itemsCard = h('<div class="card mt-16"><div class="card-pad" style="padding-bottom:0"><div class="section-title">Items (' + o.items.length + ')</div></div><div class="tbl-wrap"></div></div>');
     var hasRate = o.items.some(function (i) { return i.rate != null; });
-    var tbl = h('<table class="tbl"><thead><tr><th>#</th><th>Design No.</th><th>Pieces</th>' + (hasRate ? '<th>Rate</th>' : '') + '<th>Remarks</th></tr></thead><tbody></tbody></table>');
+    var tbl = h('<table class="tbl"><thead><tr><th>#</th><th>Design No.</th><th>Pieces</th><th>Set</th>' + (hasRate ? '<th>Rate</th>' : '') + '<th>Remarks</th></tr></thead><tbody></tbody></table>');
     var tb = qs('tbody', tbl);
     o.items.forEach(function (it, i) {
       tb.appendChild(h('<tr><td class="muted">' + (i + 1) + '</td><td style="font-weight:600">' + esc(it.design_number) + '</td>' +
-        '<td>' + (it.pieces == null ? '' : it.pieces) + '</td>' + (hasRate ? '<td>' + (it.rate == null ? '' : Number(it.rate).toLocaleString('en-IN')) + '</td>' : '') +
+        '<td>' + (it.pieces == null ? '' : it.pieces) + '</td>' +
+        '<td>' + (it.sets == null ? '' : it.sets) + '</td>' +
+        (hasRate ? '<td>' + (it.rate == null ? '' : Number(it.rate).toLocaleString('en-IN')) + '</td>' : '') +
         '<td class="muted">' + esc(it.remarks) + '</td></tr>'));
     });
     qs('.tbl-wrap', itemsCard).appendChild(tbl);
@@ -728,6 +734,7 @@
     var comp = h('<div class="card card-pad stack gap-16"></div>');
     comp.appendChild(h('<div class="section-title">Company Details (used on screen & PDF)</div>'));
     comp.appendChild(h('<div class="field"><label>Company Name</label><input class="input" data-c="name" value="' + esc(s.company.name) + '"></div>'));
+    comp.appendChild(h('<div class="field"><label>GST Number</label><input class="input" data-c="gst" placeholder="e.g. 24AACCG3656K1ZJ" value="' + esc(s.company.gst || '') + '"></div>'));
     comp.appendChild(h('<div class="field"><label>Tagline</label><input class="input" data-c="tagline" value="' + esc(s.company.tagline) + '"></div>'));
     comp.appendChild(h('<div class="field"><label>Address</label><textarea class="textarea" data-c="address">' + esc(s.company.address) + '</textarea></div>'));
     comp.appendChild(h('<div class="grid-2">' +
@@ -747,7 +754,7 @@
       ].filter(function (c) { return c.label || c.phone; });
       DB.Settings.save(cur); toast('Company details saved'); render();
     };
-    var resetComp = h('<button class="btn btn-ghost" style="align-self:flex-start">Reset to Guddu Group defaults</button>');
+    var resetComp = h('<button class="btn btn-ghost" style="align-self:flex-start">Reset to company defaults</button>');
     resetComp.onclick = function () { DB.Settings.resetCompany(); toast('Reset to defaults'); render(); };
     comp.appendChild(h('<div class="row gap-8 wrap"></div>'));
     qs('.row:last-child', comp).appendChild(saveComp); qs('.row:last-child', comp).appendChild(resetComp);

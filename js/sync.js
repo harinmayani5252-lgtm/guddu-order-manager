@@ -33,7 +33,7 @@
     return {
       id: o.id, order_number: o.order_number, customer: o.customer, order_date: o.order_date,
       notes: o.notes, payment_terms: o.payment_terms, items: o.items,
-      total_pieces: o.total_pieces, total_designs: o.total_designs,
+      total_pieces: o.total_pieces, total_designs: o.total_designs, total_sets: o.total_sets || 0,
       created_by: o.created_by, created_by_user: o.created_by_user,
       created_at: new Date(o.created_at).toISOString(),
       updated_at: new Date(o.updated_at).toISOString(),

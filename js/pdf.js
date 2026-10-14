@@ -53,26 +53,30 @@
 
     /* ---------- Header band ---------- */
     doc.setFillColor.apply(doc, INDIGO);
-    doc.rect(0, 0, W, 96, 'F');
+    doc.rect(0, 0, W, 102, 'F');
 
     // real Guddu Group emblem (white PNG) — falls back gracefully if missing
     var textX = M;
     try {
       if (global.LOGO_PNG_WHITE) {
-        var eh = 34, ew = eh * 1.53; // emblem aspect ratio
+        var eh = 36, ew = eh * 1.53; // emblem aspect ratio
         doc.addImage(global.LOGO_PNG_WHITE, 'PNG', M, 30, ew, eh);
         textX = M + ew + 12;
       }
     } catch (e) { textX = M; }
 
     doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(21);
-    doc.text(co.name || 'ORDER FORM', textX, 44);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(17);
+    doc.text(co.name || 'GUDDU FASHION PRIVATE LIMITED', textX, 40);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.setTextColor(240, 243, 255);
+    var gstNo = co.gst || '24AACCG3656K1ZJ';
+    doc.text('GSTIN: ' + gstNo, textX, 52);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
     doc.setTextColor(226, 230, 255);
-    doc.text((co.tagline || '').toUpperCase(), textX, 58);
-    var addr = doc.splitTextToSize(co.address || '', 300);
-    doc.text(addr, textX, 70);
+    doc.text((co.tagline || '').toUpperCase(), textX, 63);
+    var addr = doc.splitTextToSize(co.address || '', 280);
+    doc.text(addr, textX, 74);
 
     // right: contacts + ORDER FORM tag
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
@@ -87,7 +91,7 @@
     });
 
     /* ---------- Order meta strip ---------- */
-    var y = 116;
+    var y = 122;
     doc.setTextColor.apply(doc, INK);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
     doc.text('Order Sheet', M, y);
@@ -141,13 +145,14 @@
 
     /* ---------- Items table ---------- */
     var hasRate = (order.items || []).some(function (it) { return it.rate != null && !isNaN(it.rate); });
+    var hasSets = (order.items || []).some(function (it) { return it.sets != null && !isNaN(it.sets) && String(it.sets).trim() !== ''; }) || (order.total_sets && order.total_sets > 0);
     var head = hasRate
-      ? [['#', 'Design No.', 'Pieces', 'Rate', 'Remarks']]
-      : [['#', 'Design No.', 'Pieces', 'Remarks']];
+      ? [['#', 'Design No.', 'Pieces', 'Set', 'Rate', 'Remarks']]
+      : [['#', 'Design No.', 'Pieces', 'Set', 'Remarks']];
     var body = (order.items || []).map(function (it, i) {
       return hasRate
-        ? [i + 1, it.design_number || '', it.pieces == null ? '' : it.pieces, it.rate == null ? '' : money(it.rate), it.remarks || '']
-        : [i + 1, it.design_number || '', it.pieces == null ? '' : it.pieces, it.remarks || ''];
+        ? [i + 1, it.design_number || '', it.pieces == null ? '' : it.pieces, it.sets == null ? '' : it.sets, it.rate == null ? '' : money(it.rate), it.remarks || '']
+        : [i + 1, it.design_number || '', it.pieces == null ? '' : it.pieces, it.sets == null ? '' : it.sets, it.remarks || ''];
     });
 
     doc.autoTable({
@@ -161,11 +166,13 @@
       alternateRowStyles: { fillColor: [250, 250, 253] },
       columnStyles: hasRate ? {
         0: { cellWidth: 28, halign: 'center', textColor: GREY },
-        2: { cellWidth: 55, halign: 'center' },
-        3: { cellWidth: 70, halign: 'right' },
+        2: { cellWidth: 50, halign: 'center' },
+        3: { cellWidth: 45, halign: 'center' },
+        4: { cellWidth: 65, halign: 'right' },
       } : {
         0: { cellWidth: 28, halign: 'center', textColor: GREY },
-        2: { cellWidth: 60, halign: 'center' },
+        2: { cellWidth: 55, halign: 'center' },
+        3: { cellWidth: 50, halign: 'center' },
       },
     });
 
@@ -175,14 +182,21 @@
     if (afterTable > doc.internal.pageSize.getHeight() - 150) { doc.addPage(); afterTable = 60; }
 
     var boxW = 200, boxX = W - M - boxW;
+    var boxH = hasSets ? 74 : 58;
     doc.setFillColor.apply(doc, SOFT);
-    doc.roundedRect(boxX, afterTable, boxW, 58, 8, 8, 'F');
+    doc.roundedRect(boxX, afterTable, boxW, boxH, 8, 8, 'F');
     doc.setFontSize(9); doc.setTextColor.apply(doc, GREY); doc.setFont('helvetica', 'bold');
-    doc.text('Total Designs', boxX + 14, afterTable + 22);
-    doc.text('Total Pieces', boxX + 14, afterTable + 42);
+    doc.text('Total Designs', boxX + 14, afterTable + 20);
+    doc.text('Total Pieces', boxX + 14, afterTable + 38);
+    if (hasSets) {
+      doc.text('Total Sets', boxX + 14, afterTable + 56);
+    }
     doc.setFontSize(13); doc.setTextColor.apply(doc, INDIGO);
-    doc.text(String(order.total_designs || 0), boxX + boxW - 14, afterTable + 23, { align: 'right' });
-    doc.text(String(order.total_pieces || 0), boxX + boxW - 14, afterTable + 43, { align: 'right' });
+    doc.text(String(order.total_designs || 0), boxX + boxW - 14, afterTable + 21, { align: 'right' });
+    doc.text(String(order.total_pieces || 0), boxX + boxW - 14, afterTable + 39, { align: 'right' });
+    if (hasSets) {
+      doc.text(String(order.total_sets || 0), boxX + boxW - 14, afterTable + 57, { align: 'right' });
+    }
 
     // notes / payment on the left
     var lx2 = M;

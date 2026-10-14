@@ -29,6 +29,7 @@ create table if not exists public.orders (
   items           jsonb not null default '[]'::jsonb,
   total_pieces    integer not null default 0,
   total_designs   integer not null default 0,
+  total_sets      integer not null default 0,
   created_by      text,
   created_by_user text,
   created_at      timestamptz not null default now(),
